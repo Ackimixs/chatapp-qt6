@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(server)
+project(chat_server)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
@@ -15,12 +15,8 @@ find_package(Qt6 COMPONENTS
         Network
         REQUIRED)
 
-file(GLOB_RECURSE SOURCES
-        "*.cpp"
-)
-
-add_executable(server ${SOURCES})
-target_link_libraries(server
+add_executable(chat_server main.cpp)
+target_link_libraries(chat_server
         Qt::Core
         Qt::Gui
         Qt::Widgets

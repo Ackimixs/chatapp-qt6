@@ -13,6 +13,7 @@
 #include <QLabel>
 #include <QTimer>
 #include <QDialog>
+#include <QMenuBar>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
