@@ -1,24 +1,15 @@
-# Chat system
-## Description
-Chat system, client side made with qt6 c++ connected to a bun server that handle messages with a websocket and handle connection and other things with a api.
+# wbsckt
 
-## How to use
-### [Server](https://github.com/ackimixs/chat-qt6-bun-server)
-refer to the server readme
-### Client
-#### Build
+To install dependencies:
+
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+bun install
 ```
 
-#### Run
+To run:
+
 ```bash
-./chat-qt6-bun-client
+bun run index.ts
 ```
 
-## You have to know
-This is not a secure chat system, it's just a project to learn how to use qt6 and websocket.
-That is maybe broken, i'm not a professional developer, i'm just a student. But that was fun to do.
+This project was created using `bun init` in bun v1.0.18. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
