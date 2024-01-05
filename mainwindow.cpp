@@ -1,10 +1,13 @@
 #include "mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") {
-    socket = new QTcpSocket(this);
-    connect(socket, &QTcpSocket::connected, this, &MainWindow::onConnected);
-    connect(socket, &QTcpSocket::readyRead, this, &MainWindow::onReadyRead);
-    connect(socket, &QTcpSocket::errorOccurred, this, &MainWindow::onErrorOccurred);
+    apiClient = new ApiClient();
+    wsClient = new WebSocketClient();
+    connect(wsClient, &WebSocketClient::connected, this, &MainWindow::onConnected);
+    connect(wsClient, &WebSocketClient::disconnected, this, &MainWindow::onDisconnected);
+    connect(wsClient, &WebSocketClient::messageReceived, this, &MainWindow::handleMessage);
+
+    //connect(apiClient, &ApiClient::dataReceived, this, &MainWindow::handleMessage);
 
     errorLabel = new QLabel(this);
     errorLabel->setStyleSheet("QLabel { color : red; }");
@@ -58,14 +61,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
 
         auto *button = new QPushButton("Connect", dialog);
         connect(button, &QPushButton::clicked, dialog, [this, dialog, ipEdit, portEdit]() {
-            socket->disconnectFromHost();
-
-            if (socket->state() == QAbstractSocket::UnconnectedState || socket->waitForDisconnected(5000)) {
-                socket->connectToHost(ipEdit->text(), portEdit->text().toInt());
-                errorLabel->setText("");
-            } else {
-                this->displayError("Could not disconnect from host");
-            }
+            wsClient->close();
 
             dialog->close();
         });
@@ -90,7 +86,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
                                              tr("ChatRoom name:"), QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
-            this->sendMessage("create " + text);
+            this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/create/?name=" + text + "&id=" + this->getId()), [this](const QString& data)
+            {
+                roomChanged(data.split(" ")[2]);
+            });
         }
     });
 
@@ -101,13 +100,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
                                              tr("ChatRoom name:"), QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
-            this->sendMessage("join " + text);
+            this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/join/?name=" + text + "&id=" + this->getId()), [this](const QString& data)
+            {
+                roomChanged(data.split(" ")[2]);
+            });
         }
     });
 
     auto *action3 = chatroomMenu->addAction("List of ChatRooms");
     connect(action3, &QAction::triggered, this, [this]() {
-        this->sendMessage("list");
+        this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/list"), [this](const QString& data)
+        {
+            this->listChatrooms(data.split("\n").mid(0, data.split("\n").size() - 1));
+        });
     });
 
     setMenuBar(menuBar);
