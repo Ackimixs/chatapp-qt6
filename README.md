@@ -11,6 +11,7 @@ To run:
 create the db with prisma and then
 
 ```bash
+bun prisma:generate:dev
 bun dev
 ```
 
