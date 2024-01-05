@@ -8,7 +8,7 @@ bun install
 
 To run:
 
-create db with prisma and then
+create the db with prisma and then
 
 ```bash
 bun dev
