@@ -85,6 +85,15 @@ public:
 
             } else {
                 qDebug() << "Error:" << reply->errorString();
+
+                const auto doc = QJsonDocument::fromJson(reply->readAll());
+
+                if (!doc.isNull() && doc.isObject() && doc.object().contains("statusText"))
+                {
+                    emit errorOccurred(doc.object().value("statusText").toString());
+                    return;
+                }
+
                 emit errorOccurred(reply->errorString());
             }
 
