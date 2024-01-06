@@ -58,8 +58,7 @@ export class MyServer {
                 if (url.pathname.startsWith("/api/room/create") && req.method === "POST") {
                     console.log("create room api called");
 
-                    const name = url.searchParams.get("name");
-                    const id = url.searchParams.get("id");
+                    const { name, id } = await req.json();
 
                     if (name && id) {
                         if (Rooms.has(name)) {
