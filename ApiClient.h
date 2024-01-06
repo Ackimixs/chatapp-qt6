@@ -37,7 +37,7 @@ public:
     }
 
     void fetchData(const QUrl &url, ApiMethod apiMethod = GET, const std::function<void(const QJsonDocument&)>& func = nullptr, const QByteArray& data = "") {
-        qInfo() << "Fetching data from" << url;
+        qDebug() << "Fetching data from" << url;
         QNetworkRequest request(url);
         QNetworkReply *reply = nullptr;
 
@@ -62,7 +62,7 @@ public:
         connect(reply, &QNetworkReply::finished, [=]() {
             if (reply->error() == QNetworkReply::NoError) {
                 const QByteArray responseData = reply->readAll();
-                qInfo() << "Response:" << responseData;
+                qDebug() << "Api Response:" << responseData;
 
                 const QJsonDocument doc = QJsonDocument::fromJson(responseData);
 

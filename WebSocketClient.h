@@ -39,25 +39,25 @@ signals:
 
 private slots:
     void onConnected() {
-        qInfo() << "WebSocket Connected!";
+        qDebug() << "WebSocket Connected!";
 
         emit connected();
     }
 
     void onDisconnected() {
-        qInfo() << "WebSocket Disconnected!";
+        qDebug() << "WebSocket Disconnected!";
 
         emit disconnected();
     }
 
     void onTextMessageReceived(const QString &message) {
-        qInfo() << "Message received:" << message;
+        qDebug() << "Message received:" << message;
 
         emit messageReceived(message);
     }
 
     void onErrorOccurred(QAbstractSocket::SocketError error) {
-        qInfo() << "Error occurred:" << error;
+        qDebug() << "Error occurred:" << error;
 
         emit errorOccurred(socket->errorString());
     }
