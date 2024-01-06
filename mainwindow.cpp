@@ -104,35 +104,84 @@ MainWindow::MainWindow(QString ip, qint16 port, QWidget *parent) : QMainWindow(p
                                              "", &ok);
         if (ok && !text.isEmpty()) {
 
+            if (text.contains(" "))
+            {
+                this->displayError("Chatroom name cannot contain spaces");
+                return;
+            }
+            if (text.size() > 20)
+            {
+                this->displayError("Chatroom name cannot be longer than 20 characters");
+                return;
+            }
+            if (text.contains("\n"))
+            {
+                this->displayError("Chatroom name cannot contain newlines");
+                return;
+            }
+            if (text.contains("\t"))
+            {
+                this->displayError("Chatroom name cannot contain tabs");
+                return;
+            }
+
             QUrl toFetch = serverUrl;
             toFetch.setScheme("http");
             toFetch.setPath(this->apiClient->endpoints.createRoom);
-            toFetch.setQuery("name=" + text + "&id=" + this->getId());
 
-            this->apiClient->fetchData(toFetch, [this](const QString& data)
+            QJsonObject body;
+            body.insert("name", text);
+            body.insert("id", this->getId());
+
+            this->apiClient->fetchData(toFetch, POST, [this](const QJsonDocument& data)
             {
-                roomChanged(data.split(" ")[2]);
-            });
+                if (data.isObject())
+                {
+                    const auto dataObj = data.object();
+                    if (dataObj.contains("body") && dataObj.value("body").isObject())
+                    {
+                        const auto dataBody = dataObj.value("body").toObject();
+                        if (dataBody.contains("room"))
+                        {
+                            roomChanged(dataBody.value("room").toString());
+                        }
+                    }
+                }
+            }, QJsonDocument(body).toJson());
         }
     });
 
-    auto *action2 = chatroomMenu->addAction("Join ChatRoom");
+    const auto *action2 = chatroomMenu->addAction("Join ChatRoom");
     connect(action2, &QAction::triggered, this, [this]() {
         bool ok;
-        QString text = QInputDialog::getText(this, tr("Join ChatRoom"),
-                                             tr("ChatRoom name:"), QLineEdit::Normal,
-                                             "", &ok);
+        const QString text = QInputDialog::getText(this, tr("Join ChatRoom"),
+                                                   tr("ChatRoom name:"), QLineEdit::Normal,
+                                                   "", &ok);
         if (ok && !text.isEmpty()) {
 
             QUrl toFetch = serverUrl;
             toFetch.setScheme("http");
             toFetch.setPath(this->apiClient->endpoints.joinRoom);
-            toFetch.setQuery("name=" + text + "&id=" + this->getId());
 
-            this->apiClient->fetchData(toFetch, [this](const QString& data)
+            QJsonObject body;
+            body.insert("name", text);
+            body.insert("id", this->getId());
+
+            this->apiClient->fetchData(toFetch, POST, [this](const QJsonDocument& data)
             {
-                roomChanged(data.split(" ")[2]);
-            });
+                if (data.isObject())
+                {
+                    const auto dataObj = data.object();
+                    if (dataObj.contains("body") && dataObj.value("body").isObject())
+                    {
+                        const auto dataBody = dataObj.value("body").toObject();
+                        if (dataBody.contains("room"))
+                        {
+                            roomChanged(dataBody.value("room").toString());
+                        }
+                    }
+                }
+            }, QJsonDocument(body).toJson());
         }
     });
 
@@ -143,9 +192,29 @@ MainWindow::MainWindow(QString ip, qint16 port, QWidget *parent) : QMainWindow(p
         toFetch.setScheme("http");
         toFetch.setPath(this->apiClient->endpoints.listRooms);
 
-        this->apiClient->fetchData(toFetch, [this](const QString& data)
+        this->apiClient->fetchData(toFetch, GET, [this](const QJsonDocument& data)
         {
-            this->listChatrooms(data.split("\n").mid(0, data.split("\n").size() - 1));
+            if (data.isObject())
+            {
+                auto dataObj = data.object();
+                if (dataObj.contains("body") && dataObj.value("body").isObject() && dataObj.value("body").toObject().contains("rooms"))
+                {
+                    const auto rooms = dataObj.value("body").toObject().value("rooms");
+                    if (rooms.isArray())
+                    {
+                        auto roomsArray = rooms.toArray();
+                        QStringList roomsList;
+                        for (const auto& room : roomsArray)
+                        {
+                            if (room.isObject() && room.toObject().contains("name"))
+                            {
+                                roomsList.append(room.toObject().value("name").toString());
+                            }
+                        }
+                        this->listChatrooms(roomsList);
+                    }
+                }
+            }
         });
     });
 

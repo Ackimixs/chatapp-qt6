@@ -102,12 +102,26 @@ public slots:
             QUrl toFetch = serverUrl;
             toFetch.setScheme("http");
             toFetch.setPath(this->apiClient->endpoints.joinRoom);
-            toFetch.setQuery("id=" + this->getId() + "&name=home");
 
-            this->apiClient->fetchData(toFetch, [this](const QString& data)
+            QJsonObject body;
+            body.insert("name", "home");
+            body.insert("id", this->getId());
+
+            this->apiClient->fetchData(toFetch, POST, [this](const QJsonDocument& data)
             {
-                roomChanged(data.split(" ")[2]);
-            });
+                if (data.isObject())
+                {
+                    const auto dataObj = data.object();
+                    if (dataObj.contains("body") && dataObj.value("body").isObject())
+                    {
+                        const auto dataBody = dataObj.value("body").toObject();
+                        if (dataBody.contains("room"))
+                        {
+                            roomChanged(dataBody.value("room").toString());
+                        }
+                    }
+                }
+            }, QJsonDocument(body).toJson());
         }
     }
 
@@ -142,12 +156,26 @@ protected:
                     QUrl toFetch = serverUrl;
                     toFetch.setScheme("http");
                     toFetch.setPath(this->apiClient->endpoints.joinRoom);
-                    toFetch.setQuery("name=" + room + "&id=" + this->getId());
 
-                    this->apiClient->fetchData(toFetch, [this](const QString& data)
+                    QJsonObject body;
+                    body.insert("name", room);
+                    body.insert("id", this->getId());
+
+                    this->apiClient->fetchData(toFetch, POST, [this](const QJsonDocument& data)
                     {
-                        roomChanged(data.split(" ")[2]);
-                    });
+                        if (data.isObject())
+                        {
+                            const auto dataObj = data.object();
+                            if (dataObj.contains("body") && dataObj.value("body").isObject())
+                            {
+                                const auto dataBody = dataObj.value("body").toObject();
+                                if (dataBody.contains("room"))
+                                {
+                                    roomChanged(dataBody.value("room").toString());
+                                }
+                            }
+                        }
+                    }, QJsonDocument(body).toJson());
                 }
                 listWidget->close();
             });
@@ -175,17 +203,30 @@ protected:
         toFetch.setPath(this->apiClient->endpoints.historyRoom);
         toFetch.setQuery("name=" + roomName);
 
-        this->apiClient->fetchData(toFetch, [this](const QString& history)
+        this->apiClient->fetchData(toFetch, GET, [this](const QJsonDocument& history)
         {
-            this->messages.clear();
-            auto d = history.split("\n");
-            d.pop_back();
-            for (const auto& message : d)
+            if (history.isObject())
             {
-                this->messages.append(new QString(message));
+                auto obj = history.object();
+                if (obj.contains("body") && obj.value("body").isObject() && obj.value("body").toObject().contains("messages"))
+                {
+                    const auto messages = obj.value("body").toObject().value("messages");
+                    if (messages.isArray())
+                    {
+                        auto messageArray = messages.toArray();
+                        this->messages.clear();
+                        for (const auto& message : messageArray)
+                        {
+                            if (message.isObject() && message.toObject().contains("content"))
+                            {
+                                this->messages.append(new QString(message.toObject().value("content").toString()));
+                            }
+                        }
+                        this->messages.append(new QString("------- You joined the chatroom"));
+                        this->displayToTextedit();
+                    }
+                }
             }
-            this->messages.append(new QString("------- You joined the chatroom"));
-            this->displayToTextedit();
         });
     }
 

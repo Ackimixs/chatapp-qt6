@@ -3,6 +3,20 @@
 #include <QObject>
 #include <QNetworkReply>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QNetworkAccessManager>
+
+#include "ApiClient.h"
+
+enum ApiMethod
+{
+    GET,
+    POST,
+    PUT,
+    DELETE
+};
 
 class ApiClient : public QObject {
     Q_OBJECT
@@ -22,27 +36,55 @@ public:
         manager = new QNetworkAccessManager(this);
     }
 
-    void fetchData(const QUrl &url, const std::function<void(const QString&)>& func = nullptr) {
+    void fetchData(const QUrl &url, ApiMethod apiMethod = GET, const std::function<void(const QJsonDocument&)>& func = nullptr, const QByteArray& data = "") {
         qInfo() << "Fetching data from" << url;
-        const QNetworkRequest request(url);
-        QNetworkReply *reply = manager->get(request);
+        QNetworkRequest request(url);
+        QNetworkReply *reply = nullptr;
+
+        switch (apiMethod)
+        {
+            case GET:
+                reply = manager->get(request);
+                break;
+            case POST:
+                request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+                reply = manager->post(request, data);
+                break;
+            case PUT:
+                request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+                reply = manager->put(request, data);
+                break;
+            case DELETE:
+                reply = manager->deleteResource(request);
+                break;
+        }
 
         connect(reply, &QNetworkReply::finished, [=]() {
             if (reply->error() == QNetworkReply::NoError) {
                 const QByteArray responseData = reply->readAll();
                 qInfo() << "Response:" << responseData;
 
-                if (responseData.startsWith("error"))
+                const QJsonDocument doc = QJsonDocument::fromJson(responseData);
+
+                if (doc.isObject())
                 {
-                    emit errorOccurred(responseData);
-                }
-                else if (func != nullptr)
-                {
-                    func(responseData);
+                    if (doc.object().contains("status"))
+                    {
+                        const auto status = QString::number(doc.object().value("status").toInt());
+                        if (status.startsWith("4") || status.startsWith("5"))
+                        {
+                            emit errorOccurred(doc.object().value("message").toString());
+                            return;
+                        }
+                        if (status.startsWith("2") && func != nullptr)
+                        {
+                            func(doc);
+                        }
+                    }
                 }
 
             } else {
-                qInfo() << "Error:" << reply->errorString();
+                qDebug() << "Error:" << reply->errorString();
                 emit errorOccurred(reply->errorString());
             }
 
