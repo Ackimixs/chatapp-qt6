@@ -21,7 +21,7 @@ class MainWindow final : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    MainWindow(QString  ip, qint16 port, QWidget *parent = nullptr);
 
     void displayToTextedit()
     {
@@ -75,9 +75,13 @@ private slots:
     }
 
 public slots:
-    void connectToServer(const QString &ipAddress, quint16 port) const
+    void connectToServer() const
     {
-        wsClient->connectTo(QUrl("ws://" + ipAddress + ":" + QString::number(port) + "/chat"));
+        QUrl wsUrl = serverUrl;
+        wsUrl.setScheme("ws");
+        wsUrl.setPath("/ws");
+
+        wsClient->connectTo(wsUrl);
    }
 
     void sendMessage(const QString &message) const
@@ -95,7 +99,12 @@ public slots:
         {
             id = message.split(" ")[1];
 
-            this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/join?name=home&id=" + this->getId()), [this](const QString& data)
+            QUrl toFetch = serverUrl;
+            toFetch.setScheme("http");
+            toFetch.setPath(this->apiClient->endpoints.joinRoom);
+            toFetch.setQuery("id=" + this->getId() + "&name=home");
+
+            this->apiClient->fetchData(toFetch, [this](const QString& data)
             {
                 roomChanged(data.split(" ")[2]);
             });
@@ -129,7 +138,13 @@ protected:
             connect(button, &QPushButton::clicked, this, [this, room, listWidget]() {
                 if (roomName != room)
                 {
-                    this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/join/?name=" + room + "&id=" + this->getId()), [this](const QString& data)
+
+                    QUrl toFetch = serverUrl;
+                    toFetch.setScheme("http");
+                    toFetch.setPath(this->apiClient->endpoints.joinRoom);
+                    toFetch.setQuery("name=" + room + "&id=" + this->getId());
+
+                    this->apiClient->fetchData(toFetch, [this](const QString& data)
                     {
                         roomChanged(data.split(" ")[2]);
                     });
@@ -155,7 +170,12 @@ protected:
         roomName = room;
         this->setWindowTitle(QString("Chatroom : " + roomName));
 
-        this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/history?name=" + room), [this](const QString& history)
+        QUrl toFetch = serverUrl;
+        toFetch.setScheme("http");
+        toFetch.setPath(this->apiClient->endpoints.historyRoom);
+        toFetch.setQuery("name=" + roomName);
+
+        this->apiClient->fetchData(toFetch, [this](const QString& history)
         {
             this->messages.clear();
             auto d = history.split("\n");
@@ -187,4 +207,8 @@ private:
     WebSocketClient *wsClient;
 
     QString id;
+
+    QString ipAddress;
+    quint16 port;
+    QUrl serverUrl;
 };
