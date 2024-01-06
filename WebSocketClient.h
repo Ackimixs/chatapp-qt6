@@ -13,6 +13,7 @@ public:
         connect(socket, &QWebSocket::connected, this, &WebSocketClient::onConnected);
         connect(socket, &QWebSocket::disconnected, this, &WebSocketClient::onDisconnected);
         connect(socket, &QWebSocket::textMessageReceived, this, &WebSocketClient::onTextMessageReceived);
+        connect(socket, &QWebSocket::errorOccurred, this, &WebSocketClient::onErrorOccurred);
     }
 
     void connectTo(const QUrl &url) const
@@ -34,6 +35,7 @@ signals:
     void connected();
     void disconnected();
     void messageReceived(const QString &message);
+    void errorOccurred(const QString &error);
 
 private slots:
     void onConnected() {
@@ -52,6 +54,12 @@ private slots:
         qInfo() << "Message received:" << message;
 
         emit messageReceived(message);
+    }
+
+    void onErrorOccurred(QAbstractSocket::SocketError error) {
+        qInfo() << "Error occurred:" << error;
+
+        emit errorOccurred(socket->errorString());
     }
 
 private:
