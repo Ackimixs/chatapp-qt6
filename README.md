@@ -1,6 +1,6 @@
 # Chat system
 ## Description
-Chat system, client side made with qt6 c++ connected to a bun server that handle messages with a websocket and handle connection and other things with a api.
+Chat system, client side made with qt6 c++ connected to a bun server that handle messages with a websocket and handle connection and other things with an api.
 
 ## How to use
 ### [Server](https://github.com/ackimixs/chat-qt6-bun-server)
