@@ -4,7 +4,7 @@ import {Server, ServerWebSocket} from 'bun';
 
 export class MyServer {
     prisma: PrismaClient;
-    server: Server;
+    server: Server | null = null;
     Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>;
     Rooms: Map<string, string[]>;
 
@@ -20,8 +20,20 @@ export class MyServer {
                 name: true,
             }
         });
-        for (const room of rooms) {
-            this.Rooms.set(room.name, []);
+
+        if (rooms.length === 0) {
+            const r = await this.prisma.room.create({
+                data: {
+                    name: "home",
+                }
+            });
+
+            this.Rooms.set(r.name, []);
+        }
+        else {
+            for (const room of rooms) {
+                this.Rooms.set(room.name, []);
+            }
         }
     }
 
@@ -35,7 +47,7 @@ export class MyServer {
             async fetch(req, server) {
                 const url = new URL(req.url);
 
-                if (url.pathname === "/chat") {
+                if (url.pathname === "/ws") {
                     const success = server.upgrade(req, {data: {id: cuid()}});
                     console.log("Upgrade: " + success);
                     return success
@@ -43,7 +55,7 @@ export class MyServer {
                         : new Response("WebSocket upgrade error", { status: 400 });
                 }
 
-                if (url.pathname.startsWith("/api/room/create")) {
+                if (url.pathname.startsWith("/api/room/create") && req.method === "POST") {
                     console.log("create room api called");
 
                     const name = url.searchParams.get("name");
@@ -51,7 +63,8 @@ export class MyServer {
 
                     if (name && id) {
                         if (Rooms.has(name)) {
-                            return new Response("error room already exists");
+                            let error = {status: 400, statusText: "error room already exists"};
+                            return new Response(JSON.stringify(error), error);
                         } else {
 
                             if (Clients.has(id)) {
@@ -71,19 +84,19 @@ export class MyServer {
                                         }
                                     });
 
-                                    return new Response("joined room " + name);
+                                    return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
                                 }
                             }
                         }
                     }
 
-                    return new Response("error no name provided");
+                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
                 }
-                else if (url.pathname.startsWith("/api/room/join")) {
+
+                else if (url.pathname.startsWith("/api/room/join") && req.method === "POST") {
                     console.log("join room api called");
 
-                    const id = url.searchParams.get("id");
-                    const name = url.searchParams.get("name");
+                    const { name, id } = await req.json();
 
                     if (id && name) {
                         let c = Clients.get(id);
@@ -95,15 +108,16 @@ export class MyServer {
                                 Rooms.get(name)?.push(id);
                                 c.roomName = name;
                                 c.ws.subscribe("room-" + name);
-                                return new Response("joined room " + name);
+                                return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
                             } else {
-                                return new Response("error room does not exist");
+                                return new Response(JSON.stringify({status: 404, statusText: "error room does not exist"}), {status: 404, statusText: "error room does not exist"});
                             }
                         }
                     }
-                    return new Response("error no id or name provided");
+                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
                 }
-                else if (url.pathname.startsWith("/api/room/leave")) {
+
+                else if (url.pathname.startsWith("/api/room/leave") && req.method === "POST") {
                     console.log("leave room api called");
 
                     const id = url.searchParams.get("id");
@@ -113,11 +127,12 @@ export class MyServer {
                             if (c.roomName) {
                                 c.ws.unsubscribe("room-" + c.roomName);
                                 c.roomName = "";
+                                Rooms.get(c.roomName)?.splice(Rooms.get(c.roomName)?.indexOf(id) ?? 0, 1);
                             }
                         }
                     }
                 }
-                else if (url.pathname.startsWith("/api/room/list")) {
+                else if (url.pathname.startsWith("/api/room/list") && req.method === "GET") {
                     console.log("list room api called");
 
                     const rooms = await prisma.room.findMany({
@@ -125,13 +140,10 @@ export class MyServer {
                             name: true,
                         }
                     });
-                    let str = "";
-                    for (const room of rooms) {
-                        str += room.name + "\n";
-                    }
-                    return new Response(str);
+
+                    return new Response(JSON.stringify({status: 200, statusText: "success", body: {rooms}}), {status: 200, statusText: "success"});
                 }
-                else if (url.pathname.startsWith("/api/room/history")) {
+                else if (url.pathname.startsWith("/api/room/history") && req.method === "GET") {
                     console.log("history room api called");
 
                     const name = url.searchParams.get("name");
@@ -143,16 +155,15 @@ export class MyServer {
                                 }
                             },
                             take: 64,
+                            select: {
+                                content: true
+                            }
                         });
-                        let str = "";
-                        for (const message of messages) {
-                            str += message.content + "\n";
-                        }
-                        return new Response(str);
+                        return new Response(JSON.stringify({status: 200, statusText: "success", body: {messages}}), {status: 200, statusText: "success"});
                     }
-                    return new Response("error no name provided");
+                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
                 }
-                return new Response("error no path provided");
+                return new Response(JSON.stringify({status: 400, statusText: "error unknown api"}), {status: 400, statusText: "error unknown api"});
             },
             websocket: {
                 async message(ws, message : string) {
