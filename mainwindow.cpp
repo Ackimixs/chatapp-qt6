@@ -1,13 +1,20 @@
 #include "mainwindow.h"
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") {
+#include <utility>
+
+MainWindow::MainWindow(QString ip, qint16 port, QWidget *parent) : QMainWindow(parent), roomName("home"), ipAddress(std::move(ip)), port(port) {
+    serverUrl = QUrl();
+    serverUrl.setHost(ipAddress);
+    serverUrl.setPort(port);
+
     apiClient = new ApiClient();
     wsClient = new WebSocketClient();
     connect(wsClient, &WebSocketClient::connected, this, &MainWindow::onConnected);
     connect(wsClient, &WebSocketClient::disconnected, this, &MainWindow::onDisconnected);
     connect(wsClient, &WebSocketClient::messageReceived, this, &MainWindow::handleMessage);
+    connect(wsClient, &WebSocketClient::errorOccurred, this, &MainWindow::onErrorOccurred);
 
-    //connect(apiClient, &ApiClient::dataReceived, this, &MainWindow::handleMessage);
+    connect(apiClient, &ApiClient::errorOccurred, this, &MainWindow::onErrorOccurred);
 
     errorLabel = new QLabel(this);
     errorLabel->setStyleSheet("QLabel { color : red; }");
@@ -63,6 +70,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
         connect(button, &QPushButton::clicked, dialog, [this, dialog, ipEdit, portEdit]() {
             wsClient->close();
 
+            const QString newIp = ipEdit->text();
+            const QString newPort = portEdit->text();
+
+            this->ipAddress = newIp;
+            this->port = newPort.toInt();
+            this->serverUrl.setHost(this->ipAddress);
+            this->serverUrl.setPort(this->port);
+
+            this->connectToServer();
+
             dialog->close();
         });
         dialogLayout->addWidget(button);
@@ -86,7 +103,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
                                              tr("ChatRoom name:"), QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
-            this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/create/?name=" + text + "&id=" + this->getId()), [this](const QString& data)
+
+            QUrl toFetch = serverUrl;
+            toFetch.setScheme("http");
+            toFetch.setPath(this->apiClient->endpoints.createRoom);
+            toFetch.setQuery("name=" + text + "&id=" + this->getId());
+
+            this->apiClient->fetchData(toFetch, [this](const QString& data)
             {
                 roomChanged(data.split(" ")[2]);
             });
@@ -100,7 +123,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
                                              tr("ChatRoom name:"), QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
-            this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/join/?name=" + text + "&id=" + this->getId()), [this](const QString& data)
+
+            QUrl toFetch = serverUrl;
+            toFetch.setScheme("http");
+            toFetch.setPath(this->apiClient->endpoints.joinRoom);
+            toFetch.setQuery("name=" + text + "&id=" + this->getId());
+
+            this->apiClient->fetchData(toFetch, [this](const QString& data)
             {
                 roomChanged(data.split(" ")[2]);
             });
@@ -109,7 +138,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), roomName("home") 
 
     auto *action3 = chatroomMenu->addAction("List of ChatRooms");
     connect(action3, &QAction::triggered, this, [this]() {
-        this->apiClient->fetchData(QUrl("http://localhost:8081/api/room/list"), [this](const QString& data)
+
+        QUrl toFetch = serverUrl;
+        toFetch.setScheme("http");
+        toFetch.setPath(this->apiClient->endpoints.listRooms);
+
+        this->apiClient->fetchData(toFetch, [this](const QString& data)
         {
             this->listChatrooms(data.split("\n").mid(0, data.split("\n").size() - 1));
         });
