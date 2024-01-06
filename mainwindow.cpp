@@ -104,25 +104,18 @@ MainWindow::MainWindow(QString ip, qint16 port, QWidget *parent) : QMainWindow(p
                                              "", &ok);
         if (ok && !text.isEmpty()) {
 
-            if (text.contains(" "))
-            {
-                this->displayError("Chatroom name cannot contain spaces");
-                return;
-            }
             if (text.size() > 20)
             {
                 this->displayError("Chatroom name cannot be longer than 20 characters");
                 return;
             }
-            if (text.contains("\n"))
+            for (const auto& c : text)
             {
-                this->displayError("Chatroom name cannot contain newlines");
-                return;
-            }
-            if (text.contains("\t"))
-            {
-                this->displayError("Chatroom name cannot contain tabs");
-                return;
+                if (!c.isLetterOrNumber())
+                {
+                    this->displayError("Chatroom name can only contain letters and numbers");
+                    return;
+                }
             }
 
             QUrl toFetch = serverUrl;
@@ -188,34 +181,8 @@ MainWindow::MainWindow(QString ip, qint16 port, QWidget *parent) : QMainWindow(p
     auto *action3 = chatroomMenu->addAction("List of ChatRooms");
     connect(action3, &QAction::triggered, this, [this]() {
 
-        QUrl toFetch = serverUrl;
-        toFetch.setScheme("http");
-        toFetch.setPath(this->apiClient->endpoints.listRooms);
+        this->listChatrooms(0, 10);
 
-        this->apiClient->fetchData(toFetch, GET, [this](const QJsonDocument& data)
-        {
-            if (data.isObject())
-            {
-                auto dataObj = data.object();
-                if (dataObj.contains("body") && dataObj.value("body").isObject() && dataObj.value("body").toObject().contains("rooms"))
-                {
-                    const auto rooms = dataObj.value("body").toObject().value("rooms");
-                    if (rooms.isArray())
-                    {
-                        auto roomsArray = rooms.toArray();
-                        QStringList roomsList;
-                        for (const auto& room : roomsArray)
-                        {
-                            if (room.isObject() && room.toObject().contains("name"))
-                            {
-                                roomsList.append(room.toObject().value("name").toString());
-                            }
-                        }
-                        this->listChatrooms(roomsList);
-                    }
-                }
-            }
-        });
     });
 
     setMenuBar(menuBar);
