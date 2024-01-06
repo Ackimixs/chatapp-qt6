@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(chat-qt6-bun-client VERSION 0.1.2 LANGUAGES CXX)
+project(chat-qt6-bun-client VERSION 0.1.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
