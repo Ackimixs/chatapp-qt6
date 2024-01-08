@@ -1,17 +1,20 @@
 import cuid from 'cuid';
 import { PrismaClient } from '@prisma/client';
 import {Server, ServerWebSocket} from 'bun';
+import {Router} from "./router.ts";
 
 export class MyServer {
     prisma: PrismaClient;
     server: Server | null = null;
     Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>;
     Rooms: Map<string, string[]>;
+    router: Router;
 
     constructor() {
         this.prisma = new PrismaClient();
         this.Clients = new Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>();
         this.Rooms = new Map<string, string[]>();
+        this.router = new Router();
     }
 
     async initDatabase() {
@@ -35,12 +38,15 @@ export class MyServer {
                 this.Rooms.set(room.name, []);
             }
         }
+
+        await this.router.initialize();
     }
 
     start() {
         const prisma = this.prisma;
         const Clients = this.Clients;
         const Rooms = this.Rooms;
+        const router = this.router;
 
         this.server = Bun.serve<{ id: string }>({
             port: 8081,
@@ -55,114 +61,7 @@ export class MyServer {
                         : new Response("WebSocket upgrade error", { status: 400 });
                 }
 
-                if (url.pathname.startsWith("/api/room/create") && req.method === "POST") {
-                    console.log("create room api called");
-
-                    const { name, id } = await req.json();
-
-                    if (name && id) {
-                        if (Rooms.has(name)) {
-                            let error = {status: 400, statusText: "error room already exists"};
-                            return new Response(JSON.stringify(error), error);
-                        } else {
-
-                            if (Clients.has(id)) {
-                                let c = Clients.get(id);
-                                if (c) {
-                                    if (c.roomName) {
-                                        c.ws.unsubscribe("room-" + c.roomName);
-                                    }
-
-                                    Rooms.set(name, [id]);
-                                    c.roomName = name;
-                                    c.ws.subscribe("room-" + name);
-
-                                    await prisma.room.create({
-                                        data: {
-                                            name: name,
-                                        }
-                                    });
-
-                                    return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
-                                }
-                            }
-                        }
-                    }
-
-                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
-                }
-
-                else if (url.pathname.startsWith("/api/room/join") && req.method === "POST") {
-                    console.log("join room api called");
-
-                    const { name, id } = await req.json();
-
-                    if (id && name) {
-                        let c = Clients.get(id);
-                        if (c) {
-                            if (c.roomName) {
-                                c.ws.unsubscribe("room-" + c.roomName);
-                            }
-                            if (Rooms.has(name)) {
-                                Rooms.get(name)?.push(id);
-                                c.roomName = name;
-                                c.ws.subscribe("room-" + name);
-                                return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
-                            } else {
-                                return new Response(JSON.stringify({status: 404, statusText: "error room does not exist"}), {status: 404, statusText: "error room does not exist"});
-                            }
-                        }
-                    }
-                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
-                }
-
-                else if (url.pathname.startsWith("/api/room/leave") && req.method === "POST") {
-                    console.log("leave room api called");
-
-                    const id = url.searchParams.get("id");
-                    if (id) {
-                        let c = Clients.get(id);
-                        if (c) {
-                            if (c.roomName) {
-                                c.ws.unsubscribe("room-" + c.roomName);
-                                c.roomName = "";
-                                Rooms.get(c.roomName)?.splice(Rooms.get(c.roomName)?.indexOf(id) ?? 0, 1);
-                            }
-                        }
-                    }
-                }
-                else if (url.pathname.startsWith("/api/room/list") && req.method === "GET") {
-                    console.log("list room api called");
-
-                    const rooms = await prisma.room.findMany({
-                        select: {
-                            name: true,
-                        }
-                    });
-
-                    return new Response(JSON.stringify({status: 200, statusText: "success", body: {rooms}}), {status: 200, statusText: "success"});
-                }
-                else if (url.pathname.startsWith("/api/room/history") && req.method === "GET") {
-                    console.log("history room api called");
-
-                    const name = url.searchParams.get("name");
-                    if (name) {
-                        const messages = await prisma.message.findMany({
-                            where: {
-                                room: {
-                                    name
-                                }
-                            },
-                            take: 64,
-                            select: {
-                                content: true
-                            }
-                        });
-                        return new Response(JSON.stringify({status: 200, statusText: "success", body: {messages}}), {status: 200, statusText: "success"});
-                    }
-                    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
-                }
-                return new Response(JSON.stringify({status: 400, statusText: "error unknown api"}), {status: 400, statusText: "error unknown api"});
+                return await router.handle(req, {Rooms, Clients, prisma});
             },
             websocket: {
                 async message(ws, message : string) {
@@ -175,17 +74,20 @@ export class MyServer {
                         if (room) {
                             const messageData = message.split(' ');
                             ws.publish("room-" + room.roomName, "message " + messageData.slice(1).join(' '));
-
-                            await prisma.message.create({
-                                data: {
-                                    content: messageData.slice(1).join(' '),
-                                    room: {
-                                        connect: {
-                                            name: room.roomName
-                                        }
-                                    },
-                                }
-                            });
+                            try {
+                                await prisma.message.create({
+                                    data: {
+                                        content: messageData.slice(1).join(' '),
+                                        room: {
+                                            connect: {
+                                                name: room.roomName
+                                            }
+                                        },
+                                    }
+                                });
+                            } catch (e) {
+                                console.log(e);
+                            }
 
                         } else {
                             ws.send("error you are not in a room");
