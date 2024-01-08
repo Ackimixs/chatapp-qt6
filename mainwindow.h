@@ -134,7 +134,7 @@ protected:
         QUrl toFetch = serverUrl;
         toFetch.setScheme("http");
         toFetch.setPath(this->apiClient->endpoints.listRooms);
-        toFetch.setQuery("page=" + QString::number(page) + "&limit=" + QString::number(limit));
+        toFetch.setQuery("page=" + QString::number(page) + "&limit=" + QString::number(limit) + "&id=" + this->getId());
 
         this->apiClient->fetchData(toFetch, GET, [this, page, limit](const QJsonDocument& data)
         {
@@ -261,7 +261,7 @@ protected:
         QUrl toFetch = serverUrl;
         toFetch.setScheme("http");
         toFetch.setPath(this->apiClient->endpoints.historyRoom);
-        toFetch.setQuery("name=" + roomName);
+        toFetch.setQuery("name=" + roomName + "&id=" + this->getId());
 
         this->apiClient->fetchData(toFetch, GET, [this](const QJsonDocument& history)
         {
