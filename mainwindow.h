@@ -5,9 +5,7 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QHBoxLayout>
-#include <QTcpSocket>
 #include <QKeyEvent>
-#include <QMenu>
 #include <QInputDialog>
 #include <QLabel>
 #include <QTimer>
@@ -57,9 +55,7 @@ private slots:
 
         this->sendMessage(QString("message %1").arg(text).toUtf8());
 
-        messages.append(new QString(text));
-
-        this->displayToTextedit();
+        bigTextEdit->append(QString(text));
     }
 
     void onConnected() const
@@ -96,8 +92,7 @@ public slots:
     void handleMessage(const QString &message) {
         if (message.startsWith("message"))
         {
-            messages.append(new QString(message.split(" ").mid(1).join(" ")));
-            displayToTextedit();
+            this->bigTextEdit->append(QString(message.split(" ").mid(1).join(" ")));
         }
         else if (message.startsWith("id"))
         {
@@ -296,11 +291,10 @@ protected:
                         {
                             if (message.isObject() && message.toObject().contains("content"))
                             {
-                                this->messages.append(new QString(message.toObject().value("content").toString()));
+                                this->bigTextEdit->append(message.toObject().value("content").toString());
                             }
                         }
-                        this->messages.append(new QString("------- You joined the chatroom : " + roomName + " -------"));
-                        this->displayToTextedit();
+                        this->bigTextEdit->append("------- You joined the chatroom : " + roomName + " -------");
                     }
                 }
             }
