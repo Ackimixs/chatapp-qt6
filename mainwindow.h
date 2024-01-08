@@ -21,18 +21,6 @@ class MainWindow final : public QMainWindow {
 public:
     MainWindow(QString  ip, qint16 port, QWidget *parent = nullptr);
 
-    void displayToTextedit()
-    {
-        QString text = "";
-
-        for (const auto message : messages) {
-            text += *message + "\n";
-        }
-
-        bigTextEdit->setText(text);
-
-    }
-
     [[nodiscard]] QString getId() const
     {
         return id;
@@ -286,7 +274,7 @@ protected:
                     if (messages.isArray())
                     {
                         auto messageArray = messages.toArray();
-                        this->messages.clear();
+                        this->bigTextEdit->clear();
                         for (const auto& message : messageArray)
                         {
                             if (message.isObject() && message.toObject().contains("content"))
@@ -310,8 +298,6 @@ private:
     QMenu *mainMenu;
     QLabel *errorLabel;
     QTimer *errorDisplayTimer;
-
-    QList<QString *> messages;
 
     QString roomName;
 
