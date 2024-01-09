@@ -18,7 +18,7 @@ export class MyServer {
     }
 
     async init() {
-        await this->initDatabase();
+        await this.initDatabase();
         await this.router.initialize()
     }
 
