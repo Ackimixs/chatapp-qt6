@@ -17,6 +17,11 @@ export class MyServer {
         this.router = new Router();
     }
 
+    async init() {
+        await this->initDatabase();
+        await this.router.initialize()
+    }
+
     async initDatabase() {
         const rooms = await this.prisma.room.findMany({
             select: {
@@ -39,7 +44,7 @@ export class MyServer {
             }
         }
 
-        await this.router.initialize();
+        
     }
 
     start() {
