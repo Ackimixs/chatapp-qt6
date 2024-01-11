@@ -7,7 +7,8 @@ export default async (req: Request, {Rooms, Clients, prisma} : {Rooms: Map<strin
 
     const url = new URL(req.url);
 
-    const id = url.searchParams.get("id");
+    const { id } = avait req.json();
+
     if (id) {
         let c = Clients.get(id);
         if (c) {
@@ -15,6 +16,8 @@ export default async (req: Request, {Rooms, Clients, prisma} : {Rooms: Map<strin
                 c.ws.unsubscribe("room-" + c.roomName);
                 c.roomName = "";
                 Rooms.get(c.roomName)?.splice(Rooms.get(c.roomName)?.indexOf(id) ?? 0, 1);
+
+               
             }
         }
     }
