@@ -19,7 +19,7 @@ export class MyServer {
 
     async init() {
         await this.initDatabase();
-        await this.router.initialize()
+        await this.router.initialize(this.Clients, this.Rooms, this.prisma);
     }
 
     async initDatabase() {
@@ -56,62 +56,21 @@ export class MyServer {
         this.server = Bun.serve<{ id: string }>({
             port: 8081,
             async fetch(req, server) {
-                const url = new URL(req.url);
+                let res = await router.handleWebSocket(req, server, {id: cuid()});
 
-                if (url.pathname === "/ws") {
-                    const success = server.upgrade(req, {data: {id: cuid()}});
-                    console.log("Upgrade: " + success);
-                    return success
-                        ? undefined
-                        : new Response("WebSocket upgrade error", { status: 400 });
+                if (res) {
+                    return res;
                 }
 
-                return await router.handle(req, {Rooms, Clients, prisma});
+                res = await router.handle(req, {Rooms, Clients, prisma});
+
+                if (res) {
+                    return res;
+                }
+
+                return new Response("Not found", { status: 404 });
             },
-            websocket: {
-                async message(ws, message : string) {
-                    console.log("Message received: " + message);
-
-                    let method = message.split(' ')[0];
-
-                    if (method === "message") {
-                        let room = Clients.get(ws.data.id);
-                        if (room) {
-                            const messageData = message.split(' ');
-                            ws.publish("room-" + room.roomName, "message " + messageData.slice(1).join(' '));
-                            try {
-                                await prisma.message.create({
-                                    data: {
-                                        content: messageData.slice(1).join(' '),
-                                        room: {
-                                            connect: {
-                                                name: room.roomName
-                                            }
-                                        },
-                                    }
-                                });
-                            } catch (e) {
-                                console.log(e);
-                            }
-
-                        } else {
-                            ws.send("error you are not in a room");
-                        }
-                    }
-                },
-                open(ws) {
-                    console.log("Socket with id " + ws.data.id + " open");
-                    ws.send('id ' + ws.data.id);
-                    Clients.set(ws.data.id, {roomName: "", ws: ws});
-                },
-                close(ws, code, message) {
-                    let room = Clients.get(ws.data.id);
-                    ws.unsubscribe("room-" + room);
-                    Clients.delete(ws.data.id);
-                    Rooms.get(ws.data.id)?.splice(Rooms.get(ws.data.id)?.indexOf(ws.data.id) ?? 0, 1);
-                    console.log("Socket with id " + ws.data.id + " close");
-                },
-            },
+            websocket: router.ws.websocket
         });
 
         console.log(`Listening on ${this.server.hostname}:${this.server.port}`);

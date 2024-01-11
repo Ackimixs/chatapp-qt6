@@ -2,22 +2,22 @@
   "name": "wbsckt",
   "module": "index.ts",
   "type": "module",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "bun-types": "latest"
+    "@types/bun": "^1.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@prisma/client": "5.7.1",
-    "@types/bun": "^1.0.0",
     "cuid": "^3.0.0",
     "prisma": "^5.7.1"
   },
   "scripts": {
     "dev": "bun run index.ts",
+    "build": "bun build",
     "prisma:migrate:dev": "bunx prisma migrate dev",
     "prisma:migrate:generate": "bunx prisma generate",
     "prisma:studio": "bunx prisma studio"

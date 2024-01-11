@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import {ServerWebSocket} from "bun";
 
-export default async (req: Request, {Rooms, Clients, prisma} : {Rooms: Map<string, string[]>, Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>, prisma: PrismaClient}) => {
+export async function apiRouteHandler(req: Request, {Rooms, Clients, prisma} : {Rooms: Map<string, string[]>, Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>, prisma: PrismaClient}) {
     console.log("create room api called");
 
     const { name, id } = await req.json();
