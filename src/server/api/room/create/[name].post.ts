@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import {Rooms, Clients, myRequest} from '@root/utils/type.ts';
+import {Rooms, Clients, myRequest, myResponse} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: myRequest, {Rooms, Clients, prisma} : {Rooms: Rooms, Clients: Clients, prisma: PrismaClient}) {
+export async function apiRouteHandler(req: myRequest, res: myResponse, {Rooms, Clients, prisma} : {Rooms: Rooms, Clients: Clients, prisma: PrismaClient}) {
     console.log("create room api called");
 
     const { name } = req.params;
@@ -9,8 +9,7 @@ export async function apiRouteHandler(req: myRequest, {Rooms, Clients, prisma} :
 
     if (name && id) {
         if (Rooms.has(name)) {
-            let error = {status: 400, statusText: "error room already exists"};
-            return new Response(JSON.stringify(error), error);
+            res.status(400).statusText("error room already exists").json({status: 400, statusText: "error room already exists"});
         } else {
 
             if (Clients.has(id)) {
@@ -30,11 +29,15 @@ export async function apiRouteHandler(req: myRequest, {Rooms, Clients, prisma} :
                         }
                     });
 
-                    return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
+                    res.status(200).statusText("success").json({status: 200, statusText: "success", body: {room: name}});
                 }
+            } else {
+                res.status(400).statusText("error client does not exist").json({status: 400, statusText: "error client does not exist"});
             }
         }
     }
 
-    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
+    if (!res.isReady()) {
+        res.status(400).statusText("error while creating room").json({status: 400, statusText: "error while creating room"});
+    }
 }

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import {Clients, myRequest} from '@root/utils/type.ts';
+import {Clients, myRequest, myResponse} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: myRequest, {Clients, prisma} : {Clients: Clients, prisma: PrismaClient}) {
+export async function apiRouteHandler(req: myRequest, res: myResponse, {Clients, prisma} : {Clients: Clients, prisma: PrismaClient}) {
 
     console.log("list room api called");
 
@@ -22,15 +22,10 @@ export async function apiRouteHandler(req: myRequest, {Clients, prisma} : {Clien
 
         const nbTotal = await prisma.room.count();
 
-        return new Response(JSON.stringify({
-            status: 200,
-            statusText: "success",
-            body: {rooms, roomsNumber: nbTotal}
-        }), {status: 200, statusText: "success"});
+        res.status(200).statusText("success").json({status: 200, statusText: "success", body: {rooms, roomsNumber: nbTotal}});
     }
 
-    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {
-        status: 400,
-        statusText: "error no name provided"
-    });
+    if (!res.isReady()) {
+        res.status(400).statusText("error while listing rooms").json({status: 400, statusText: "error while listing rooms"});
+    }
 }

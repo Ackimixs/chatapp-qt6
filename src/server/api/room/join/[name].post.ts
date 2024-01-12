@@ -1,6 +1,6 @@
-import {Rooms, Clients, myRequest} from '@root/utils/type.ts';
+import {Rooms, Clients, myRequest, myResponse} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: myRequest, {Rooms, Clients} : {Rooms: Rooms, Clients: Clients}) {
+export async function apiRouteHandler(req: myRequest, res: myResponse, {Rooms, Clients} : {Rooms: Rooms, Clients: Clients}) {
 
     console.log("join room api called");
 
@@ -17,11 +17,15 @@ export async function apiRouteHandler(req: myRequest, {Rooms, Clients} : {Rooms:
                 Rooms.get(name)?.push(id);
                 c.roomName = name;
                 c.ws.subscribe("room-" + name);
-                return new Response(JSON.stringify({status: 200, statusText: "success", body: {room: name}}), {status: 200, statusText: "success"});
+
+                res.status(200).statusText("success").json({status: 200, statusText: "success", body: {room: name}});
             } else {
-                return new Response(JSON.stringify({status: 404, statusText: "error room does not exist"}), {status: 404, statusText: "error room does not exist"});
+                res.status(404).statusText("error room does not exist").json({status: 404, statusText: "error room does not exist"});
             }
         }
     }
-    return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
+
+    if (!res.isReady()) {
+        res.status(400).statusText("error while joining room").json({status: 400, statusText: "error while joining room"});
+    }
 }

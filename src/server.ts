@@ -2,7 +2,7 @@ import cuid from 'cuid';
 import { PrismaClient } from '@prisma/client';
 import {Server, ServerWebSocket} from 'bun';
 import {Router} from "@root/router.ts";
-import {Clients, Rooms } from '@root/utils/type.ts';
+import {Clients, myResponse, Rooms} from '@root/utils/type.ts';
 
 export class MyServer {
     prisma: PrismaClient;
@@ -44,8 +44,6 @@ export class MyServer {
                 this.Rooms.set(room.name, []);
             }
         }
-
-        
     }
 
     start() {
@@ -55,21 +53,18 @@ export class MyServer {
         const router = this.router;
 
         this.server = Bun.serve<{ id: string }>({
-            port: 8081,
+            port: Bun.env.PORT ?? 8080,
             async fetch(req, server) {
-                let res = await router.handleWebSocket(req, server, {id: cuid()});
 
-                if (res) {
-                    return res;
+                let res: myResponse = new myResponse();
+
+                await router.handle(req, res, server, {Rooms, Clients, prisma, id: cuid()});
+
+                if (res.isReady()) {
+                    return res.end();
+                } else {
+                    return res.status(404).statusText("Not found").json({status: 404, statusText: "Not found"}).end();
                 }
-
-                res = await router.handle(req, {Rooms, Clients, prisma});
-
-                if (res) {
-                    return res;
-                }
-
-                return new Response("Not found", { status: 404 });
             },
             websocket: router.ws.websocket
         });

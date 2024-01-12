@@ -1,40 +1,40 @@
 import fs from "node:fs";
 import path from "node:path";
 import {Server, WebSocketHandler} from "bun";
-import { websocket } from "@root/server/websocket.ts";
 import { PrismaClient } from "@prisma/client";
 import * as process from "process";
-import {myRequest} from "@root/utils/type.ts";
+import {myRequest, myResponse} from "@root/utils/type.ts";
 
 export class Router {
-    routes: Map<{path: string, method: string}, (req: myRequest, options?: { [key: string]: any }) => Promise<Response>>;
-    middleware: {path: string, middlewareHandler: (req: Request, options?: { [key: string]: any }) => Promise<{middlewareResponseStatus: number, response?: Response}>}[] = [];
+    routes: Map<{path: string, method: string}, (req: myRequest, res: myResponse, options?: { [key: string]: any }) => Promise<void>>;
+    middleware: {path: string, middlewareHandler: (req: Request, res: myResponse, options?: { [key: string]: any }) => Promise<{middlewareResponseStatus: number, response?: Response}>}[] = [];
     ws: {path: string[], websocket: WebSocketHandler<{ id: string }> | undefined};
 
     constructor() {
-        this.routes = new Map<{path: string, method: string}, (req: Request) => Promise<Response>>();
+        this.routes = new Map<{path: string, method: string}, (req: myRequest, res: myResponse) => Promise<void>>();
         this.middleware = [];
         this.ws = {path: [], websocket: undefined};
     }
 
-    addRoute(path: string, method: string, handler: (req: Request) => Promise<Response>) {
+    addRoute(path: string, method: string, handler: (req: myRequest, res: myResponse) => Promise<void>) {
         this.routes.set({path, method}, handler);
     }
 
-    async handle(req: Request, options?: { [key: string]: any }) {
+    async handle(req: Request, res: myResponse, server: Server, options?: { [p: string]: any }) {
+        await this.handleWebSocket(req, res, server, options);
+        if (res.isReady()) {
+            return;
+        }
+
         const url = new URL(req.url);
 
         const path = url.pathname;
         for (const middleware of this.middleware) {
             if (path.match(middleware.path)) {
-                const {middlewareResponseStatus, response} = await middleware.middlewareHandler(req, options);
+                await middleware.middlewareHandler(req, res, options);
 
-                if (response) {
-                    return response;
-                }
-
-                if (!middlewareResponseStatus.toString().startsWith("2")) {
-                    return new Response("Middleware error", { status: 400 });
+                if (res.isReady()) {
+                    return;
                 }
             }
         }
@@ -42,7 +42,11 @@ export class Router {
         let handler = findValueInMap(this.routes, {path: url.pathname, method: req.method});
         if (!handler) handler = findValueInMap(this.routes, {path: url.pathname, method: "ALL"});
         if (handler) {
-            return await handler(req, options);
+            await handler(req, res, options);
+
+            if (res.isReady()) {
+                return;
+            }
         } else {
             // Check for special routes like :id
             for (const [specialRoute, v] of this.routes) {
@@ -55,23 +59,26 @@ export class Router {
                             }
                         });
                         if (req.body) r.jsonData = await req.json();
-                        return await v(r, options);
+                        await v(r, res, options);
+
+                        if (res.isReady()) {
+                            return res;
+                        }
                     }
                 }
             }
         }
     }
 
-    async handleWebSocket(req: Request, server: Server, options?: { [key: string]: any }) {
+    async handleWebSocket(req: Request, res: myResponse, server: Server, options?: { [key: string]: any }) {
         const url = new URL(req.url);
         const path = url.pathname;
 
         if (this.ws.websocket && this.ws.path.some(p => path.match(p))) {
             const success = server.upgrade(req, {data: options});
-            console.log("Upgrade: " + success);
-            return success
-                ? undefined
-                : new Response("WebSocket upgrade error", { status: 400 });
+            success
+                ? res.status(101).send("WebSocket upgrade successful")
+                : res.status(400).send("WebSocket upgrade failed");
         }
     }
 
@@ -105,7 +112,12 @@ export class Router {
             this.middleware.push(middleware.middleware);
         }
 
-        this.ws.websocket = websocket(Clients, Rooms, prisma);
+        if (fs.existsSync("./src/server/websocket.ts")) {
+            const fullPath = path.join(process.cwd(), "./src/server/websocket.ts");
+            const websocket = await import(fullPath);
+
+            this.ws.websocket = websocket.websocket(Clients, Rooms, prisma);
+        }
     }
 
     getAllFiles(dirPath: string, filesArray: string[]): string[] {
@@ -129,23 +141,23 @@ export class Router {
         return filesArray;
     }
 
-    get(path: string, handler: (req: Request) => Promise<Response>) {
+    get(path: string, handler: (req: myRequest, res: myResponse) => Promise<void>) {
         this.addRoute(path, "GET", handler);
     }
 
-    post(path: string, handler: (req: Request) => Promise<Response>) {
+    post(path: string, handler: (req: myRequest, res: myResponse) => Promise<void>) {
         this.addRoute(path, "POST", handler);
     }
 
-    put(path: string, handler: (req: Request) => Promise<Response>) {
+    put(path: string, handler: (req: Request, res: myResponse) => Promise<void>) {
         this.addRoute(path, "PUT", handler);
     }
 
-    delete(path: string, handler: (req: Request) => Promise<Response>) {
+    delete(path: string, handler: (req: Request, res: myResponse) => Promise<void>) {
         this.addRoute(path, "DELETE", handler);
     }
 
-    patch(path: string, handler: (req: Request) => Promise<Response>) {
+    patch(path: string, handler: (req: Request, res: myResponse) => Promise<void>) {
         this.addRoute(path, "PATCH", handler);
     }
 }
