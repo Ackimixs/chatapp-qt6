@@ -6,15 +6,16 @@
     "moduleResolution": "bundler",
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
-    "noEmit": true,
     "composite": true,
     "strict": true,
     "downlevelIteration": true,
     "skipLibCheck": true,
-    "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
+    "baseUrl": "./",
+    "paths": {
+      "@root/*": ["./src/*"]
+    },
     "types": [
       "bun-types" // add Bun global
     ]

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import {ServerWebSocket} from "bun";
+import {Clients, myRequest} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: Request, {Clients, prisma} : {Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>, prisma: PrismaClient}) {
+export async function apiRouteHandler(req: myRequest, {Clients, prisma} : {Clients: Clients, prisma: PrismaClient}) {
 
     console.log("list room api called");
 

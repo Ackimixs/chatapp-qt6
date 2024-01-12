@@ -1,10 +1,11 @@
-import {ServerWebSocket} from "bun";
+import {Rooms, Clients, myRequest} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: Request, {Rooms, Clients} : {Rooms: Map<string, string[]>, Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>}) {
+export async function apiRouteHandler(req: myRequest, {Rooms, Clients} : {Rooms: Rooms, Clients: Clients}) {
 
     console.log("join room api called");
 
-    const { name, id } = await req.json();
+    const { name } = req.params;
+    const { id } = req.jsonData;
 
     if (id && name) {
         let c = Clients.get(id);

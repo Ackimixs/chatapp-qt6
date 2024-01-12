@@ -1,4 +1,4 @@
-import {MyServer} from "./server.ts";
+import {MyServer} from "@root/server.ts";
 
 const server = new MyServer();
 

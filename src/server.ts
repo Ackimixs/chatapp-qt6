@@ -1,13 +1,14 @@
 import cuid from 'cuid';
 import { PrismaClient } from '@prisma/client';
 import {Server, ServerWebSocket} from 'bun';
-import {Router} from "./router.ts";
+import {Router} from "@root/router.ts";
+import {Clients, Rooms } from '@root/utils/type.ts';
 
 export class MyServer {
     prisma: PrismaClient;
     server: Server | null = null;
-    Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>;
-    Rooms: Map<string, string[]>;
+    Clients: Clients;
+    Rooms: Rooms;
     router: Router;
 
     constructor() {

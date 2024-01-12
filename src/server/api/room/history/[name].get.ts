@@ -1,13 +1,13 @@
 import { PrismaClient } from '@prisma/client';
-import {ServerWebSocket} from "bun";
+import {Clients, myRequest} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: Request, {Clients, prisma} : {Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>, prisma: PrismaClient}) {
+export async function apiRouteHandler(req: myRequest, {Clients, prisma} : {Clients: Clients, prisma: PrismaClient}) {
 
     console.log("history room api called");
 
     const url = new URL(req.url);
 
-    const name = url.searchParams.get("name");
+    const { name } = req.params;
     const limit = parseInt(url.searchParams.get("limit") ?? "64", 10);
     const id = url.searchParams.get("id");
 

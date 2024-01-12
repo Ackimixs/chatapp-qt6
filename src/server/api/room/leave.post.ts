@@ -1,6 +1,6 @@
-import {ServerWebSocket} from "bun";
+import {Rooms, Clients, myRequest} from '@root/utils/type.ts';
 
-export async function apiRouteHandler(req: Request, {Rooms, Clients} : {Rooms: Map<string, string[]>, Clients: Map<string, {roomName: string, ws: ServerWebSocket<{ id: string }>}>}) {
+export async function apiRouteHandler(req: myRequest, {Rooms, Clients} : {Rooms: Rooms, Clients: Clients}) {
     console.log("leave room api called");
 
     const { id } = await req.json();
@@ -17,10 +17,10 @@ export async function apiRouteHandler(req: Request, {Rooms, Clients} : {Rooms: M
             } else {
                 return new Response(JSON.stringify({status: 400, statusText: "error you are not in a room"}), {status: 400, statusText: "error you are not in a room"});
             }
-        } else {
-            return new Response(JSON.stringify({status: 400, statusText: "error you are not in a room"}), {status: 400, statusText: "error you are not in a room"});
         }
     } else {
         return new Response(JSON.stringify({status: 400, statusText: "error no name provided"}), {status: 400, statusText: "error no name provided"});
     }
+
+    return new Response(JSON.stringify({status: 400, statusText: "error while leaving room"}), ({status: 400, statusText: "error while leaving room"}));
 }
